@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="namespace" default="bebop" />
+    <group ns="$(arg namespace)">
+        <node pkg="bebop_circle" name="circle_node" type="circle.py" output="screen"/>
+    </group>
+</launch>

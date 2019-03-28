@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="namespace" default="bebop" />
+    <group ns="$(arg namespace)">
+        <node pkg="bebop_kbd_control" name="manual_control" type="keyboard.py" output="screen"/>
+    </group>
+</launch>
