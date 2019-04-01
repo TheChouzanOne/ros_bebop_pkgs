@@ -21,7 +21,6 @@ def circlePoints(n, r):
     for i in range(n):
         initialP = np.matmul(rotMat, initialP)
         points.append(initialP)
-
     return points
 
 if __name__=="__main__":
