@@ -6,6 +6,6 @@ import rospy
 if __name__=="__main__":
     try:
         rospy.init_node('Ok')
-        print("Hola puto")
+        print("Hola jeje")
     except KeyboardInterrupt:
         print("TRYING TO STOPPPP")

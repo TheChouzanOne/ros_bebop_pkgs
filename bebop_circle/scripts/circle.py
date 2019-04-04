@@ -9,20 +9,18 @@ sys.path.insert(0, '/home/adrian/Documents/CETYS/Vehiculos/bebop_ws/src/bebop_au
 from CoordinateSystem import CoordinateSystem
 
 def circlePoints(n, r):
-    initialP = np.array([r,0,0.4])
+    initialP = np.array([r,0,0], dtype='float64')
     theta = np.pi * 2 / n
     points = list()
+
     rotMat = np.asarray([
         [np.cos(theta), -np.sin(theta), 0],
         [np.sin(theta), np.cos(theta) , 0],
         [0            , 0             , 1]
     ])
     for i in range(n):
-        points.append(initialP)
         initialP = np.matmul(rotMat, initialP)
-
-    points.append(np.array([r,0,0.4]))
-    points.append(np.array([0,0,0.4]))
+        points.append(initialP)
     return points
 
 if __name__=="__main__":
@@ -30,13 +28,16 @@ if __name__=="__main__":
     try:
         if not rospy.is_shutdown():
             CS = CoordinateSystem(speed=0.1, turnSpeed=1)
-            points = circlePoints(6, 0.35)
+            points = circlePoints(6, 0.2)
             CS.flattrim()
             CS.takeoff()
-            # CS.moveTo([0.5,0,0.4])
+            origin = CS.position.copy()
+            print("Origin is %s"%origin)
             for p in points:
-                CS.moveTo(p)
+                print("Origin is %s"%origin)
+                CS.moveTo(p+origin)
             CS.land()
-            pass
+
     except KeyboardInterrupt:
         print("TRYING TO STOPPPP")
+        del CS
