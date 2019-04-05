@@ -4,6 +4,7 @@ import rospy
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Empty
 from nav_msgs.msg import Odometry
+from simple_pid import PID
 import numpy as np
 import threading
 from time import sleep
@@ -16,7 +17,7 @@ class CoordinateSystem:
         self.velocity = None
         self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
 
-        self.frequency = 5
+        self.frequency = 20
         self.rate = rospy.Rate(self.frequency)
         
         self.pose = np.asarray([0,0,0,0])
