@@ -17,6 +17,10 @@ class CoordinateSystem:
         self.velocity = None
         self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
 
+        self.Kp = 0.8
+        self.Ki = 0.1
+        self.Kd = 0.5
+
         self.frequency = 20
         self.rate = rospy.Rate(self.frequency)
         
@@ -62,42 +66,37 @@ class CoordinateSystem:
             [0        , 0         , 1]
         ])
 
+    def totalError(self, errorList):
+        error = 0
+        for err in errorList:
+            error += err*err
+        
+        return np.sqrt(error)
+
     def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
         destiny = np.asarray(destiny)
-        error = np.linalg.norm(destiny-self.position)
-        counter = 1
+        pid = list()
+        error = list()
+        for i in range(3):
+            pid.append(PID(self.Kp, self.Ki, self.Kd, setpoint=destiny[i], output_limits=(-self.speed,self.speed)))
+            error.append(pid[i](self.position[i]))
+        
         print("Destiny: %s"%destiny)
         print("Position: %s"%self.position)
-        print("Distance: %s"%error)
-        while (error > 0.1):
-            if counter%2==0:
-                print("Destiny: %s"%destiny)
-                print("Position: %s"%self.position)
-                print("Pose: %s"%self.pose)
-                print()
-                counter = 0
-                newPose = np.array([0,0,0,0])
-                self.rate.sleep()
-            else:
-                direction = destiny - self.position
-                distance = np.linalg.norm(direction)
-                t = distance / self.speed
-                velocity = direction/t
-                newPose = np.asarray([
-                    velocity[0],
-                    velocity[1],
-                    velocity[2],
-                    0
-                ])
-                
+        print("Initial velocity: %s"%self.totalError(error))
+        print("Distance: %s"%self.totalError(destiny-self.position))
+        while (self.totalError(error) > .03 or self.totalError(destiny-self.position) > 0.1):
+            newPose = np.zeros(4)
+            for i in range(3):
+                error[i] = newPose[i] = pid[i](self.position[i])            
             self.pose = newPose.copy()
-            print("Distance: %s"%error)
+            print("Velocity: %s"%self.totalError(error))
+            print("Distance: %s"%self.totalError(destiny-self.position))
+            print()
             self.publishTwist()
-            error = np.linalg.norm(destiny-self.position)
-            counter+=1
             self.rate.sleep()
 
-        self.brake()
+        self.brake(sleepTime=False)
         print("Arrived to destiny") 
 
     def brake(self, sleepTime=True):
