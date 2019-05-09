@@ -13,11 +13,18 @@ import sys
 class CoordinateSystem:
     def __init__(self, speed=0.5, turnSpeed=1):
         self.position = None
+        self.destiny = None
         self.theta = None
         self.velocity = None
         self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
 
-        self.frequency = 20
+
+        self.pid = list()
+        self.Kp = 0.4
+        self.Ki = 0
+        self.Kd = 1
+
+        self.frequency = 10
         self.rate = rospy.Rate(self.frequency)
         
         self.pose = np.asarray([0,0,0,0])
@@ -34,6 +41,10 @@ class CoordinateSystem:
         self.empty_msg = Empty()
         self.twist = Twist()
 
+        self.MoveThread = threading.Thread(target=self.PIDMove)
+        self.MoveThread.setDaemon(True)
+
+
     def updatePosition(self, data):
         position = data.pose.pose.position
         orientation = data.pose.pose.orientation
@@ -45,14 +56,13 @@ class CoordinateSystem:
         self.velocity = np.array([linear.x,linear.y,linear.z,angular.z])
 
     def publishTwist(self):
-        if(self.state == "AIR"):
-            self.twist.linear.x = self.pose[0]
-            self.twist.linear.y = self.pose[1]
-            self.twist.linear.z = self.pose[2]
-            self.twist.angular.x = 0
-            self.twist.angular.y = 0
-            self.twist.angular.z = self.pose[3]
-            self.posePub.publish(self.twist)
+        self.twist.linear.x = self.pose[0]
+        self.twist.linear.y = self.pose[1]
+        self.twist.linear.z = self.pose[2]
+        self.twist.angular.x = 0
+        self.twist.angular.y = 0
+        self.twist.angular.z = self.pose[3]
+        self.posePub.publish(self.twist)
 
     def RotMat(self):
         t = self.theta
@@ -62,42 +72,33 @@ class CoordinateSystem:
             [0        , 0         , 1]
         ])
 
-    def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
-        destiny = np.asarray(destiny)
-        error = np.linalg.norm(destiny-self.position)
-        counter = 1
-        print("Destiny: %s"%destiny)
-        print("Position: %s"%self.position)
-        print("Distance: %s"%error)
-        while (error > 0.1):
-            if counter%2==0:
-                print("Destiny: %s"%destiny)
-                print("Position: %s"%self.position)
-                print("Pose: %s"%self.pose)
-                print()
-                counter = 0
-                newPose = np.array([0,0,0,0])
+    def PIDMove(self):
+        error = np.zeros(3)
+        while(True):
+            if("AIR"):
+                newPose = np.zeros(4)
+                for i in range(3):
+                    error[i] = newPose[i] = self.pid[i](self.position[i])            
+                self.pose = newPose.copy()
+                print("Velocity: %s"%np.linalg.norm(error))
+                self.publishTwist()
                 self.rate.sleep()
             else:
-                direction = destiny - self.position
-                distance = np.linalg.norm(direction)
-                t = distance / self.speed
-                velocity = direction/t
-                newPose = np.asarray([
-                    velocity[0],
-                    velocity[1],
-                    velocity[2],
-                    0
-                ])
-                
-            self.pose = newPose.copy()
-            print("Distance: %s"%error)
-            self.publishTwist()
-            error = np.linalg.norm(destiny-self.position)
-            counter+=1
-            self.rate.sleep()
+                pass
 
-        self.brake()
+    def setPIDDestiny(self, destiny):
+        for i in range(3):
+            self.pid[i].setpoint = destiny[i]
+
+    def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
+        destiny = np.asarray(destiny)
+        self.rate.sleep()
+        self.setPIDDestiny(destiny)
+        err = np.linalg.norm(destiny-self.position)
+        while (err > 0.1):
+            self.rate.sleep()
+            err = np.linalg.norm(destiny-self.position)
+            print("\nDistance: %s"%err)
         print("Arrived to destiny") 
 
     def brake(self, sleepTime=True):
@@ -109,12 +110,16 @@ class CoordinateSystem:
     def takeoff(self):
         self.takeoffPub.publish(self.empty_msg)
         sleep(8)
-        self.first = True
+        self.destiny = self.position.copy()
+        for i in range(3):
+            self.pid.append(PID(self.Kp, self.Ki, self.Kd, setpoint=self.destiny[i], output_limits=(-self.speed,self.speed)))
         self.state = "AIR"
+        self.MoveThread.start()
 
     def land(self):
-        self.landPub.publish(self.empty_msg)
         self.state = "LAND"
+        self.rate.sleep()
+        self.landPub.publish(self.empty_msg)
 
     def flattrim(self):
         self.flattrimPub.publish(self.empty_msg)

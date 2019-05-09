@@ -27,12 +27,14 @@ if __name__=="__main__":
     rospy.init_node('bebop_circle_node')
     try:
         if not rospy.is_shutdown():
-            CS = CoordinateSystem(speed=0.1, turnSpeed=1)
-            points = circlePoints(6, 0.2)
+            CS = CoordinateSystem(speed=0.5, turnSpeed=1)
+            points = circlePoints(6, 0.6)
             CS.flattrim()
             CS.takeoff()
             origin = CS.position.copy()
-            print("Origin is %s"%origin)
+            print("Origin is %s"%origin)    
+            # CS.moveTo(origin + np.asarray([0, 1, 0]))
+            # CS.moveTo(origin)
             for p in points:
                 print("Origin is %s"%origin)
                 CS.moveTo(p+origin)
@@ -40,4 +42,4 @@ if __name__=="__main__":
 
     except KeyboardInterrupt:
         print("TRYING TO STOPPPP")
-        del CS
+        CS.land()
