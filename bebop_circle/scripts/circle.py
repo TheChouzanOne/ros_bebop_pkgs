@@ -33,12 +33,12 @@ if __name__=="__main__":
             CS.takeoff()
             origin = CS.position.copy()
             print("Origin is %s"%origin)    
-            CS.moveTo(origin + np.asarray([0, 1, 0]))
-            CS.moveTo(origin)
-            # for p in points:
-            #     print("Origin is %s"%origin)
-            #     CS.moveTo(p+origin)
-            # CS.land()
+            # CS.moveTo(origin + np.asarray([0, 1, 0]))
+            # CS.moveTo(origin)
+            for p in points:
+                print("Origin is %s"%origin)
+                CS.moveTo(p+origin)
+            CS.land()
 
     except KeyboardInterrupt:
         print("TRYING TO STOPPPP")

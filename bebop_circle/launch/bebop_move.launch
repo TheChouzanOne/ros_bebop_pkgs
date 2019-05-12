@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="namespace" default="bebop" />
+    <group ns="$(arg namespace)">
+        <node pkg="bebop_circle" name="move_node" type="move.py" output="screen"/>
+    </group>
+</launch>
