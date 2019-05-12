@@ -12,9 +12,9 @@ import sys
 
 class CoordinateSystem:
     def __init__(self, speed=0.5, turnSpeed=1):
+        self.origin = None
         self.position = None
         self.destiny = None
-        self.theta = None
         self.velocity = None
         self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
 
@@ -64,8 +64,7 @@ class CoordinateSystem:
         self.twist.angular.z = self.pose[3]
         self.posePub.publish(self.twist)
 
-    def RotMat(self):
-        t = self.theta
+    def RotMat(self, t):
         return np.asarray([
             [np.cos(t), -np.sin(t), 0],
             [np.sin(t), np.cos(t) , 0],
@@ -109,10 +108,11 @@ class CoordinateSystem:
 
     def takeoff(self):
         self.takeoffPub.publish(self.empty_msg)
+        self.origin = self.position.copy()
         sleep(8)
-        self.destiny = self.position.copy()
+        current = self.position.copy()
         for i in range(3):
-            self.pid.append(PID(self.Kp, self.Ki, self.Kd, setpoint=self.destiny[i], output_limits=(-self.speed,self.speed)))
+            self.pid.append(PID(self.Kp, self.Ki, self.Kd, setpoint=current[i], output_limits=(-self.speed,self.speed)))
         self.state = "AIR"
         self.MoveThread.start()
 
