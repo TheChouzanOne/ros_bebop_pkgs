@@ -102,7 +102,6 @@ class CoordinateSystem:
         self.origin = self.position.copy()
         sleep(8)
         y = self.origin[1]
-        # current = self.origin + np.asarray([0, self.initialHeight - y, 0])
         current = np.asarray([0, 0, self.initialHeight])
         for i in range(3):
             self.pid.append(PID(self.Kp, self.Ki, self.Kd, output_limits=(-self.speed,self.speed)))
