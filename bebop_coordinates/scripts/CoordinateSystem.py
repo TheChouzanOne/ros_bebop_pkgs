@@ -7,14 +7,14 @@ from nav_msgs.msg import Odometry
 from simple_pid import PID
 import numpy as np
 from time import sleep
+import sys
 
 class CoordinateSystem:
     def __init__(self, speed=0.5, turnSpeed=1):
-        self.origin = None
         self.position = None
-        self.destiny = None
+        self.theta = None
         self.velocity = None
-        self.initialHeight = 0.7
+        self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
 
         self.pid = list()
         self.Kp = 0.4
@@ -30,7 +30,6 @@ class CoordinateSystem:
         
         self.state = "LAND"
         
-        self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
         self.posePub = rospy.Publisher('cmd_vel', Twist, queue_size=1) 
         self.takeoffPub = rospy.Publisher('takeoff', Empty, queue_size=1)
         self.flattrimPub = rospy.Publisher('flattrim', Empty, queue_size=1)
@@ -39,7 +38,6 @@ class CoordinateSystem:
         self.empty_msg = Empty()
         self.twist = Twist()
 
-
     def updatePosition(self, data):
         position = data.pose.pose.position
         orientation = data.pose.pose.orientation
@@ -47,6 +45,9 @@ class CoordinateSystem:
         angular = data.twist.twist.angular
 
         self.position = np.array([position.x, position.y, position.z])
+        self.orientation = np.array([orientation.x,orientation.y,orientation.z])
+        self.velocity = np.array([linear.x,linear.y,linear.z,angular.z])
+
         self.PIDMove()
 
     def publishTwist(self):
@@ -58,7 +59,8 @@ class CoordinateSystem:
         self.twist.angular.z = self.pose[3]
         self.posePub.publish(self.twist)
 
-    def RotMat(self, t):
+    def RotMat(self):
+        t = self.theta
         return np.asarray([
             [np.cos(t), -np.sin(t), 0],
             [np.sin(t), np.cos(t) , 0],
@@ -66,44 +68,47 @@ class CoordinateSystem:
         ])
 
     def PIDMove(self):
-        if(self.state=="AIR"):
-            newPose = np.zeros(4)
-            for i in range(3):
-                newPose[i] = self.pid[i](self.position[i]-self.origin[i])            
-            self.pose = newPose.copy()
-            print("Pose is %s"%self.pose)
-            self.publishTwist()
+        error = np.zeros(3)
+        while(True):
+            if("AIR"):
+                newPose = np.zeros(4)
+                for i in range(3):
+                    error[i] = newPose[i] = self.pid[i](self.position[i])            
+                self.pose = newPose.copy()
+                print("Velocity: %s"%np.linalg.norm(error))
+                self.publishTwist()
+                self.rate.sleep()
+            else:
+                pass
 
     def setPIDDestiny(self, destiny):
         for i in range(3):
             self.pid[i].setpoint = destiny[i]
 
-    def getDistError(self, destiny):
-        return np.linalg.norm(destiny-(self.position-self.origin))
-
     def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
         destiny = np.asarray(destiny)
-        print("I am at %s (%s)"%(self.position-self.origin, self.position))
-        print("Moving to point %s (%s)"%(destiny, destiny+self.origin))
+        self.rate.sleep()
         self.setPIDDestiny(destiny)
-        err = self.getDistError(destiny)
+        err = np.linalg.norm(destiny-self.position)
         while (err > 0.1):
             self.rate.sleep()
-            err = self.getDistError(destiny)
+            err = np.linalg.norm(destiny-self.position)
             print("\nDistance: %s"%err)
         print("Arrived to destiny") 
 
+    def brake(self, sleepTime=True):
+        newPose = np.asarray([0,0,0,0])
+        self.publishTwist()
+        if sleepTime:
+            sleep(2)
+
     def takeoff(self):
         self.takeoffPub.publish(self.empty_msg)
-        self.origin = self.position.copy()
         sleep(8)
-        current = np.asarray([0, 0, self.initialHeight])
+        destiny = self.position.copy()
         for i in range(3):
-            self.pid.append(PID(self.Kp, self.Ki, self.Kd, output_limits=(-self.speed,self.speed)))
-        self.setPIDDestiny(current)
+            self.pid.append(PID(self.Kp, self.Ki, self.Kd, setpoint=destiny[i], output_limits=(-self.speed,self.speed)))
         self.state = "AIR"
-        print("Origin is [0, 0, 0] (%s)"%(self.origin))
-        self.moveTo(current)
 
     def land(self):
         self.state = "LAND"
