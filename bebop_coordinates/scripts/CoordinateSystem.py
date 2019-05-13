@@ -47,8 +47,6 @@ class CoordinateSystem:
         angular = data.twist.twist.angular
 
         self.position = np.array([position.x, position.y, position.z])
-        self.orientation = np.array([orientation.x,orientation.y,orientation.z])
-        self.velocity = np.array([linear.x,linear.y,linear.z,angular.z])
         self.PIDMove()
 
     def publishTwist(self):
@@ -69,11 +67,11 @@ class CoordinateSystem:
 
     def PIDMove(self):
         if(self.state=="AIR"):
-            error = np.zeros(3)
             newPose = np.zeros(4)
             for i in range(3):
-                error[i] = newPose[i] = self.pid[i](self.position[i]-self.origin[i])            
+                newPose[i] = self.pid[i](self.position[i]-self.origin[i])            
             self.pose = newPose.copy()
+            print("Pose is %s"%self.pose)
             self.publishTwist()
 
     def setPIDDestiny(self, destiny):
@@ -85,8 +83,6 @@ class CoordinateSystem:
 
     def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
         destiny = np.asarray(destiny)
-        debug = destiny.copy()
-        self.rate.sleep()
         print("I am at %s (%s)"%(self.position-self.origin, self.position))
         print("Moving to point %s (%s)"%(destiny, destiny+self.origin))
         self.setPIDDestiny(destiny)
@@ -101,7 +97,6 @@ class CoordinateSystem:
         self.takeoffPub.publish(self.empty_msg)
         self.origin = self.position.copy()
         sleep(8)
-        y = self.origin[1]
         current = np.asarray([0, 0, self.initialHeight])
         for i in range(3):
             self.pid.append(PID(self.Kp, self.Ki, self.Kd, output_limits=(-self.speed,self.speed)))
