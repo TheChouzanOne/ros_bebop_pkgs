@@ -15,11 +15,15 @@ class CoordinateSystem:
         self.theta = None
         self.velocity = None
         self.odomSubs = rospy.Subscriber('odom', Odometry, self.updatePosition)
-
+        self.inverted = 1
         self.pid = list()
         self.Kp = 0.4
         self.Ki = 0
         self.Kd = 1
+
+        self.KpT = 1
+        self.KiT = 0
+        self.KdT = 0
 
         self.frequency = 10
         self.rate = rospy.Rate(self.frequency)
@@ -47,6 +51,7 @@ class CoordinateSystem:
         self.position = np.array([position.x, position.y, position.z])
         self.orientation = np.array([orientation.x,orientation.y,orientation.z])
         self.velocity = np.array([linear.x,linear.y,linear.z,angular.z])
+        self.zTheta = orientation.w
 
         self.PIDMove()
 
@@ -67,19 +72,38 @@ class CoordinateSystem:
             [0        , 0         , 1]
         ])
 
+    def rotate(self):
+        prev = self.inverted
+        setpoint = 0 if prev==1 else 1
+        self.pidTheta = PID(self.KpT, self.KiT, self.KdT, setpoint=setpoint, output_limits=(-self.turnSpeed,self.turnSpeed))
+        self.state = "ROTATING"
+        while(self.inverted==prev):
+            self.rate.sleep()
+        print("Done Rotating!")
+        self.state = "AIR"
+
     def PIDMove(self):
         error = np.zeros(3)
-        while(True):
-            if("AIR"):
-                newPose = np.zeros(4)
-                for i in range(3):
-                    error[i] = newPose[i] = self.pid[i](self.position[i])            
-                self.pose = newPose.copy()
-                print("Velocity: %s"%np.linalg.norm(error))
-                self.publishTwist()
-                self.rate.sleep()
-            else:
-                pass
+        newPose = np.zeros(4)
+        if(self.state == "AIR"):
+            for i in range(3):
+                error[i] = newPose[i] = self.pid[i](self.position[i])            
+            self.pose = self.inverted*newPose
+            if self.inverted == -1:
+                self.pose[2] = -self.pose[2] #SO Z stays the same
+            # print("Velocity: %s"%np.linalg.norm(error))
+            self.publishTwist()
+        elif(self.state == "ROTATING"):
+            speed = self.pidTheta(self.zTheta)
+            newPose[3] = speed
+            self.pose = newPose.copy()
+            self.publishTwist()
+            sp = self.pidTheta.setpoint
+            act = self.zTheta
+            print("Goal is %s.\nActual is %s\nDifference: %s"%(sp, act, abs(sp-act)))
+            if(abs(sp - act)< .01):
+                self.inverted *= -1
+
 
     def setPIDDestiny(self, destiny):
         for i in range(3):
