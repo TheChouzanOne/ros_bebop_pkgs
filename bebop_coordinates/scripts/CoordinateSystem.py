@@ -111,13 +111,14 @@ class CoordinateSystem:
 
     def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
         destiny = np.asarray(destiny)
+        print("Destiny is %s"%destiny)
         self.rate.sleep()
         self.setPIDDestiny(destiny)
         err = np.linalg.norm(destiny-self.position)
         while (err > 0.1):
             self.rate.sleep()
             err = np.linalg.norm(destiny-self.position)
-            print("\nDistance: %s"%err)
+            # print("\nDistance: %s"%err)
         print("Arrived to destiny") 
 
     def brake(self, sleepTime=True):

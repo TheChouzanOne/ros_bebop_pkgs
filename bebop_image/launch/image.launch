@@ -2,6 +2,6 @@
 <launch>
     <arg name="namespace" default="bebop" />
     <group ns="$(arg namespace)">
-        <node pkg="test" name="test_node" type="test.py" output="screen"/>
+        <node pkg="bebop_image" name="image_node" type="image.py" output="screen"/>
     </group>
 </launch>

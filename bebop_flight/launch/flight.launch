@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="namespace" default="bebop" />
+    <group ns="$(arg namespace)">
+        <node pkg="bebop_image" name="image_node" type="image.py" output="screen"/>
+        <node pkg="bebop_flight" name="flight_node" type="flight.py" output="screen"/>
+    </group>
+</launch>

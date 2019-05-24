@@ -19,7 +19,6 @@ if __name__=="__main__":
             print("Origin is %s"%origin)
             CS.moveTo(origin + np.asarray([1, 0, 0]))
             CS.rotate()
-            CS.moveTo(origin + np.asarray([1, 0, 0]))
             CS.moveTo(origin)
             CS.land()
 
