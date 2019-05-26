@@ -7,69 +7,80 @@ from time import sleep
 from geometry_msgs.msg import Twist
 sys.path.insert(0, '/home/adrian/Documents/CETYS/Vehiculos/bebop_ws/src/bebop_autonomy/bebop_coordinates/scripts')
 from CoordinateSystem import CoordinateSystem
-
+from simple_pid import PID
 
 def updateDestiny(data):
-    global STATE
-    global inverted
+    global pidX, pidY, pidZ, STATE, CS, count
     linear = data.linear
     x = linear.x
     y = linear.y
     z = linear.z # POR ALGUNA RAZON LOS VALORES DE DATA NO SE ACTUALIZAN A PESAR DE QUE SI SE PUBLICAN DE FORMA CORRECTA
-    print("X: %s\nY: %s\nZ: %s"%(x,y,z))
-    if(inverted):
-        y *= -1
-        x *= -1
+    velX, velY, velZ = pidX(x), pidY(y), pidZ(z)
+    print("STATE: %s"%STATE)
+    print("X: %s\tY: %s\tZ: %s"%(x,y,z))
+    print("velX: %s\tvelY: %s\tvelZ: %s"%(velX,velY,velZ))
+    print("Position: %s"%CS.position)
+    print()
+    planeError = np.linalg.norm(np.asarray([velY, velZ]))
     if(STATE=="CENTERING"):
-        if(np.linalg.norm(np.asarray([y, z])) < 0.05):
-            STATE = "ADVANCING"
+        if(x == -100):
+            count += 1
+            if(count > 200):
+                STATE = "ADVANCING"
+                CS.state = "AIR"
+                if(CS.inverted):
+                    CS.moveTo(CS.position + np.asarray([3,0,0]))
+                    # CS.moveTo(CS.position + np.asarray([0, -1.5, 0]))
+                    # CS.moveTo(CS.position + np.asarray([-0.5,0,0]))
+                    pass
+                else:
+                    CS.moveTo(CS.position + np.asarray([-3,0,0]))
+                    # CS.moveTo(CS.position + np.asarray([0, 1.5, 0]))
+                    # CS.moveTo(CS.position + np.asarray([0.5,0,0]))    
+                    pass
+                CS.rotate()
+                CS.state = "local"
+                STATE = "CENTERING"
         else:
-            STATE = "MOVING"
-            destiny = np.asarray([CS.position[0], CS.position[1]+y, CS.position[2]+z])
-            print("Position: %s"%CS.position)
-            CS.moveTo(destiny)
-            STATE = "CENTERING"
-    elif(STATE=="ADVANCING"):
-        if(x < 1.5):
-            offx = 2.3
-            offy = 1.5
-            if inverted:
-                offx *= -1
-                offy *= -1
-            # CS.moveTo([CS.position[0]+2, CS.position[1], CS.position[2]])
-            destiny = np.asarray([CS.position[0]+offx, CS.position[1], CS.position[2]])
-            CS.moveTo(destiny)
-            # CS.moveTo([CS.position[0], CS.position[1]-2, CS.position[2]])
-            CS.rotate()
-            inverted = CS.inverted
+            count = 0
+            if(planeError > 0.05):
+                publishTwist(0, velY, velZ)
+                pass
+            elif(x > 1.15):
+                publishTwist(velX, 0, 0)
+                pass
+    
+def publishTwist(x, y, z):
+    global posePub
+    twist = Twist()
+    twist.angular.x = 0
+    twist.angular.y = 0
+    twist.angular.z = 0
+    twist.linear.x = x
+    twist.linear.y = y
+    twist.linear.z = z
+    posePub.publish(twist)
 
-        else:
-            offx = 0.3
-            if inverted:
-                offx *= -1
-            destiny = [CS.position[0]+offx, CS.position[1], CS.position[2]]
-            CS.moveTo(destiny)
-        STATE = "CENTERING"
+try:
+    rospy.init_node('bebop_flight_node')
+    count = 0
+    inverted = False
+    CS = CoordinateSystem(speed=0.5, turnSpeed=1)
+    CS.flattrim()
+    CS.takeoff()
+    origin = CS.position.copy()
+    STATE = "CENTERING"
+    CS.state = "local"
+    pidX = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
+    pidY = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
+    pidZ = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
+    print("Origin is %s"%origin)
+    STATE = "CENTERING" #CENTERING | ADVANCING | ROTATING
+    destinySubs = rospy.Subscriber('/bebop/destiny', Twist, updateDestiny)
+    posePub = rospy.Publisher('cmd_vel', Twist, queue_size=1) 
+    while(not rospy.is_shutdown()):
+        CS.rate.sleep()
 
-if __name__=="__main__":
-    try:
-        rospy.init_node('bebop_flight_node')
-        global STATE
-        global CS
-        global inverted
-        inverted = False
-        CS = CoordinateSystem(speed=0.5, turnSpeed=1)
-        CS.flattrim()
-        CS.takeoff()
-        origin = CS.position.copy()
-        print("Origin is %s"%origin)
-        STATE = "CENTERING" #CENTERING | ADVANCING | ROTATING
-        destinySubs = rospy.Subscriber('/bebop/destiny', Twist, updateDestiny)
-        if not rospy.is_shutdown():
-            while(True):
-                print("STATE: %s"%STATE)
-                CS.rate.sleep()
-
-    except KeyboardInterrupt:
-        print("TRYING TO STOPPPP")
-        CS.land()
+except KeyboardInterrupt:
+    print("TRYING TO STOPPPP")
+    CS.land()

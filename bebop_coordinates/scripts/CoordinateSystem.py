@@ -119,13 +119,7 @@ class CoordinateSystem:
             self.rate.sleep()
             err = np.linalg.norm(destiny-self.position)
             # print("\nDistance: %s"%err)
-        print("Arrived to destiny") 
-
-    def brake(self, sleepTime=True):
-        newPose = np.asarray([0,0,0,0])
-        self.publishTwist()
-        if sleepTime:
-            sleep(2)
+        print("Arrived to destiny")
 
     def takeoff(self):
         self.takeoffPub.publish(self.empty_msg)

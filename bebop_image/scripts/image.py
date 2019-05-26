@@ -63,8 +63,10 @@ class videoFeed:
         img, contours, hierarchy = cv2.findContours(
             edge, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         square = []
+        count = 0
         for contour in contours:
             if cv2.contourArea(contour) > 5000:
+                count = 1
                 approx = cv2.convexHull(contour)
                 approx = cv2.approxPolyDP(
                     approx, 0.07*cv2.arcLength(contour, True), True)
@@ -90,6 +92,11 @@ class videoFeed:
                         #PONER AQUI UN PUBLISH PARA CUANDO YA NO SE DETECTA
                         print("Contour is probably too tiny")
                     square.append(approx)
+        if(count == 0):
+            self.visualData.linear.x = -100
+            self.visualData.linear.y = -100
+            self.visualData.linear.z = -100
+            self.publisher.publish(self.visualData)
         cv2.drawContours(image, square, -1, (0, 255, 0), 3)
         cv2.imshow('img', image)
         cv2.waitKey(1)
