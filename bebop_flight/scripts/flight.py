@@ -9,8 +9,12 @@ sys.path.insert(0, '/home/adrian/Documents/CETYS/Vehiculos/bebop_ws/src/bebop_au
 from CoordinateSystem import CoordinateSystem
 from simple_pid import PID
 
+def isInverted():
+    global CS
+    return CS.inverted != 1
+
 def updateDestiny(data):
-    global pidX, pidY, pidZ, STATE, CS, count
+    global pidX, pidY, pidZ, STATE, CS, count, marcos
     linear = data.linear
     x = linear.x
     y = linear.y
@@ -25,30 +29,38 @@ def updateDestiny(data):
     if(STATE=="CENTERING"):
         if(x == -100):
             count += 1
-            if(count > 200):
+            if(count > 100):
+                if(STATE=="ADVANCING"):
+                    return #To kill any other thread entering
                 STATE = "ADVANCING"
                 CS.state = "AIR"
-                if(CS.inverted):
-                    CS.moveTo(CS.position + np.asarray([3,0,0]))
-                    # CS.moveTo(CS.position + np.asarray([0, -1.5, 0]))
-                    # CS.moveTo(CS.position + np.asarray([-0.5,0,0]))
+                if(isInverted()):
+                    print("Entro al primero")
+                    CS.moveTo(CS.position + np.asarray([-2.5,0,0]))
+                    CS.moveTo(CS.position + np.asarray([0, 3, 0])) #CAMBIAR ESTO A 3.5 !!!!!!!!!!!!!!!!!! 
+                    CS.moveTo(CS.position + np.asarray([2,0,0]))    
                     pass
                 else:
-                    CS.moveTo(CS.position + np.asarray([-3,0,0]))
-                    # CS.moveTo(CS.position + np.asarray([0, 1.5, 0]))
-                    # CS.moveTo(CS.position + np.asarray([0.5,0,0]))    
+                    print("Entro al segundo")
+                    CS.moveTo(CS.position + np.asarray([2.5,0,0]))
+                    CS.moveTo(CS.position + np.asarray([0, -3, 0]))
+                    CS.moveTo(CS.position + np.asarray([-1,0,0]))
                     pass
-                CS.rotate()
+                if(marcos == 0):
+                    CS.rotate()
+                marcos += 1
                 CS.state = "local"
+                sleep(2)
                 STATE = "CENTERING"
         else:
             count = 0
-            if(planeError > 0.05):
-                publishTwist(0, velY, velZ)
-                pass
-            elif(x > 1.15):
-                publishTwist(velX, 0, 0)
-                pass
+            publishTwist(velX, velY, velZ)
+            # if(planeError > 0.05):
+            #     publishTwist(0, velY, velZ)
+            #     pass
+            # elif(x > 1.5):
+            #     publishTwist(velX, 0, 0)
+            #     pass
     
 def publishTwist(x, y, z):
     global posePub
@@ -64,21 +76,29 @@ def publishTwist(x, y, z):
 try:
     rospy.init_node('bebop_flight_node')
     count = 0
-    inverted = False
-    CS = CoordinateSystem(speed=0.5, turnSpeed=1)
+    CS = CoordinateSystem(speed=0.2, turnSpeed=1)
     CS.flattrim()
     CS.takeoff()
     origin = CS.position.copy()
     STATE = "CENTERING"
     CS.state = "local"
-    pidX = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
-    pidY = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
-    pidZ = PID(-0.4, 0, -1, setpoint=0, output_limits=(-CS.speed,CS.speed))
+    marcos = 0
+    pidX = PID(-0.03, 0, 0, setpoint=0, output_limits=(-CS.speed/2,CS.speed/2))
+    pidY = PID(-0.2, 0, 0, setpoint=0, output_limits=(-CS.speed,CS.speed))
+    pidZ = PID(-0.2, 0, 0, setpoint=0, output_limits=(-CS.speed,CS.speed))
     print("Origin is %s"%origin)
     STATE = "CENTERING" #CENTERING | ADVANCING | ROTATING
     destinySubs = rospy.Subscriber('/bebop/destiny', Twist, updateDestiny)
     posePub = rospy.Publisher('cmd_vel', Twist, queue_size=1) 
     while(not rospy.is_shutdown()):
+        if(marcos > 1):
+            STATE = "LANDING"
+            print("Marcos cruzados: %s"%marcos)
+            # CS.moveTo(origin)
+            # CS.rotError = 0.005
+            # CS.rotate()
+            CS.land()
+            break
         CS.rate.sleep()
 
 except KeyboardInterrupt:

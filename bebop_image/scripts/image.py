@@ -24,7 +24,7 @@ class videoFeed:
         self.squarePxHeight = 480
         self.WIDTH_CENTER = 856/2
         self.HEIGHT_CENTER = 480/2
-        self.alpha = 1
+        self.alpha = 3
         self.beta = 50
         self.visualData = Twist()
         self.publisher = rospy.Publisher('/bebop/destiny', Twist, queue_size=1)

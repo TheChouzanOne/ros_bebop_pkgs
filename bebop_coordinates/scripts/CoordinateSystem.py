@@ -21,6 +21,8 @@ class CoordinateSystem:
         self.Ki = 0
         self.Kd = 1
 
+        self.rotError = 0.001
+
         self.KpT = 1
         self.KiT = 0
         self.KdT = 0
@@ -98,10 +100,10 @@ class CoordinateSystem:
             newPose[3] = speed
             self.pose = newPose.copy()
             self.publishTwist()
-            sp = self.pidTheta.setpoint
+            sp = self.pidTheta.setpoint 
             act = self.zTheta
             print("Goal is %s.\nActual is %s\nDifference: %s"%(sp, act, abs(sp-act)))
-            if(abs(sp - act)< .01):
+            if(abs(sp - act)< self.rotError):
                 self.inverted *= -1
 
 
@@ -111,6 +113,7 @@ class CoordinateSystem:
 
     def moveTo(self, destiny): #NEEDS TO IMPLEMENT ROTATION
         destiny = np.asarray(destiny)
+        print("Current position: %s"%self.position)
         print("Destiny is %s"%destiny)
         self.rate.sleep()
         self.setPIDDestiny(destiny)
